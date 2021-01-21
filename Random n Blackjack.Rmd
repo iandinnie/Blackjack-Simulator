@@ -1,0 +1,270 @@
+---
+title: "Untitled"
+author: "Ian Dinnie"
+date: "1/18/2021"
+output: word_document
+---
+```{r}
+suppressMessages(library(tidyverse))
+```
+
+```{r setup, include=FALSE}
+# deck and functions 
+deck <- sort(rep(c(1,2,3,4,5,6,7,8,9,10),4)) # create a vector
+rep10 <- rep(deck[37:40],3) # create a bunch of 10s
+deck <- sort(rep(c(deck,rep10),8)) # combine into one deck of 416 cards
+
+# write a function that updates the deck
+update_deck <- function(x, y){
+  
+  pulled <- rep(y, sum(x == y) - 1)
+  
+  newdeck <- x[!x %in% y]
+  
+  newdeck <- sort(c(pulled, newdeck))
+}
+
+# write a function that checks ace to determine if it should be a 1 or 11
+checkace <- function(a,b){
+  
+  if(a == 1){
+  
+      if(11 + b > 21) {
+    
+          a <- 1
+    
+          } else {
+      
+            a <- 11
+    
+            }
+
+      }
+  
+  if(b == 1){
+    
+    if (11 + a > 21){
+      
+      b <- 1
+    
+      } else {
+      
+        b <- 11
+    }
+  
+    } 
+  
+  c(a,b)
+}
+
+# make another one just for hits
+checkacehit <- function(z, i){
+  
+  if(z == 1){
+  
+      if(i + 11 > 21) {
+    
+          z <- 1
+    
+          } else {
+      
+            z <- 11
+    
+            }
+  
+    }
+  
+  return(z)
+
+}
+
+# function for first deal of game for any amount of players
+firstdeal <- function(n, k){
+  
+  deck <- k
+  
+  initial <- list()
+  
+  for (i in (0: n + 1)){          # this loop creates a list of empty vectors to be filled in lower loops (n + 1 b/c of dealer)
+  
+      initial[[i]] <- rep(NA, 2)
+  
+      }
+  
+  names(initial) <- c(paste0("Player ", 1:n), "Dealer") # name the players and dealer
+  
+  for (n in 1:2){
+  
+    for (i in names(initial)){
+    
+      initial[[i]][n] <- sample(deck,1)            # this loop deals the cards in proper order and updates the deck as it goes
+    
+      deck <- update_deck(deck, initial[[i]][n])
+    
+      #print(length(deck))
+  
+      }
+  }
+  
+  return(initial)
+
+}
+```
+
+```{r}
+Blackjack_random_n <- function(k){
+  
+  hand <- 0
+  
+  deck <- k
+  
+  n <- rnorm(1,4,1)
+  
+  n <- ifelse(round(n) < 1,1,round(n))
+  
+  n <- ifelse(n > 6, 6, n)
+  
+  decklength <- length(deck)
+  
+  game <- list()
+  
+  while(decklength > 30){
+  
+      hand <- hand + 1
+    
+      game[hand] <- list(firstdeal(n, deck))
+    
+      names(game) <- rep(1:hand)# we now have two cards dealt to the player and dealer (in the proper sequence), and an updated deck
+      
+    # now allow players to asses cards, and decide to hit or stay
+    
+    for (i in names(game[[hand]])[!names(game[[hand]]) %in% "Dealer"]){
+      
+    game[[hand]][[i]] <- checkace(game[[hand]][[i]][1], game[[hand]][[i]][2])
+    
+    game[[hand]][[i]] <- game[[hand]][[i]][1] + game[[hand]][[i]][2]
+    
+    if(game[[hand]][["Dealer"]][1] == 4 |
+       game[[hand]][["Dealer"]][1] == 5 |
+       game[[hand]][["Dealer"]][1] == 6){ # check for bust cards, hit until 12 if showing
+    
+    while(game[[hand]][[i]] < 12){
+      
+    hit <- sample(deck, 1, replace = F)
+    
+    deck <- update_deck(deck, hit)
+    
+    hit <- checkacehit(hit, game[[hand]][[i]])
+    
+    game[[hand]][[i]] = game[[hand]][[i]] + hit # sum add and hit, this process continues until it exceeds 12
+    
+    }
+    
+  } else {
+    
+    if(game[[hand]][["Dealer"]][1] == 7 |
+       game[[hand]][["Dealer"]][1] == 8 |
+       game[[hand]][["Dealer"]][1] == 9 |
+       game[[hand]][["Dealer"]][1] == 10 |
+       game[[hand]][["Dealer"]][1] == 1){ # if the dealer is showing a strong card, hit on 16
+     
+       while(game[[hand]][[i]] < 17){ # if the sum is less than 17, hit, until at or above 17
+    
+      hit <- sample(deck, 1, replace = F)
+    
+      deck <- update_deck(deck, hit)
+    
+      hit <- checkacehit(hit, game[[hand]][[i]])
+    
+      game[[hand]][[i]] = game[[hand]][[i]] + hit # sum add and hit, this process continues until it exceeds 16
+       
+      } 
+        } else {
+     
+         while(game[[hand]][[i]] < 16){ # if the sum is less than 16, hit, until at or above 16
+    
+      hit <- sample(deck, 1, replace = F)
+    
+      deck <- update_deck(deck, hit)
+    
+      hit <- checkacehit(hit, game[[hand]][[i]])
+    
+      game[[hand]][[i]] = game[[hand]][[i]] + hit # sum add and hit, this process continues until it exceeds 16
+   }
+    }
+      }
+        }
+    
+    # now it's the dealer's turn
+    game[[hand]][["Dealer"]] <- checkace(game[[hand]][["Dealer"]][1], game[[hand]][["Dealer"]][2])
+    
+    game[[hand]][["Dealer"]] <- game[[hand]][["Dealer"]][1] + game[[hand]][["Dealer"]][2]
+  
+    while(game[[hand]][["Dealer"]] <= 16){ # if the sum is less than 17, hit, until at or above 17
+    
+      hit <- sample(deck, 1, replace = F)
+    
+      deck <- update_deck(deck, hit)
+    
+      hit <- checkacehit(hit, game[[hand]][["Dealer"]])
+    
+      game[[hand]][["Dealer"]] = game[[hand]][["Dealer"]] + hit # sum add and hit, this process continues until it exceeds 16
+  }
+    decklength <- length(deck)
+  
+  # Determine who won 
+  for (i in names(game[[hand]])[!names(game[[hand]]) %in% "Dealer"]){
+    
+    if (game[[hand]][[i]] > game[[hand]][["Dealer"]] & game[[hand]][[i]] < 22 |
+        game[[hand]][["Dealer"]] > 21 & game[[hand]][[i]] <= 21){
+      
+      #print(paste0(i, " has ", game[[hand]][[i]], ", House has ", game[[hand]][["Dealer"]],", ", i ," wins" ))
+      
+      game[[hand]][[i]] <- "Player Wins"
+    
+      } else {
+      
+      if (game[[hand]][[i]] < game[[hand]][["Dealer"]] & game[[hand]][["Dealer"]] < 22 |
+          game[[hand]][[i]] > 21 & game[[hand]][["Dealer"]] <= 21 |
+          game[[hand]][[i]] > 21 & game[[hand]][["Dealer"]]  > 21) {
+      
+        #print(paste0(i, " has ", game[[hand]][[i]], ", House has ", game[[hand]][["Dealer"]],", ","House wins" ))
+      
+        game[[hand]][[i]] <- "House Wins"  
+    
+      } else {
+      
+        #print(paste0(i, " has ", game[[hand]][[i]], ", House has ",game[[hand]][["Dealer"]],", " ,"draw" ))
+      
+        game[[hand]][[i]] <- "Draw"
+    }
+      }
+  }
+    game[[hand]]<- game[[hand]][!names(game[[hand]]) %in% "Dealer"]
+  }
+    return(game)
+}
+
+  #print(hand)
+  #print(decklength)
+```
+
+```{r}
+# sim a lot of games
+sim <- rerun(100, Blackjack_random_n(deck)) # Comment out the print lines in above block before simming
+
+allresults <- unlist(sim)
+
+player <- mean(allresults == "Player Wins")
+
+house <- mean(allresults == "House Wins")
+
+draw <- mean(allresults == "Draw")
+
+ResultsofSim <- matrix(data = round(100*c(player, house, draw),2),
+                       nrow = 1,
+                       ncol = 3,
+                       dimnames = list("%",c("Player Win %", "House Win %", "Draw %")), byrow = T) # create a neat matrix to display sim results
+
+print(ResultsofSim)
+```

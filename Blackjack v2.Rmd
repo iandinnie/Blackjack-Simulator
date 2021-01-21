@@ -1,0 +1,182 @@
+---
+title: "Blackjack v2"
+author: "Ian Dinnie"
+date: "1/15/2021"
+output: html_document
+---
+
+
+```{r setup, include=T}
+suppressMessages(library(tidyverse))
+```
+
+```{r}
+
+# Things to add
+# Splits
+# I need to perfect iterating through entire deck: right now it is set to stop when there are 30 cards remaining, when the deck gets too small to go through it a whole iteration it throws up an error because it runs out of cards to sample
+# More players
+
+```
+
+```{r}
+# create deck and functions needed
+#construct a deck
+deck <- sort(rep(c(1,2,3,4,5,6,7,8,9,10),4)) # create a vector
+rep10 <- rep(deck[37:40],3) # create a bunch of 10s
+deck <- sort(rep(c(deck,rep10),8)) # combine into one deck of 416 cards
+
+# write a function that updates the deck
+update_deck <- function(x, y){
+  pulled <- rep(y, sum(x == y) - 1)
+  newdeck <- x[!x %in% y]
+  newdeck <- sort(c(pulled, newdeck))
+}
+
+# write a function that checks ace to determine if it should be a 1 or 11
+checkace <- function(a,b){
+  if(a == 1){
+    if(11 + b > 21) {
+      a <- 1
+    } else {
+      a <- 11
+    }
+  }
+  if(b == 1){
+    if (11 + a > 21){
+      b <- 1
+    } else {
+      b <- 11
+    }
+  } 
+  c(a,b)
+}
+
+# make another one just for hits
+checkacehit <- function(z, i){
+  if(z == 1){
+    if(i + 11 > 21) {
+      z <- 1
+    } else {
+      z <- 11
+    }
+  }
+  return(z)
+}
+
+# function for first deal of game for any amount of players
+firstdeal <- function(n, k){
+  deck <- k
+  initial <- list()
+  for (i in (0: n + 1)){          # this loop creates a list of empty vectors to be filled in lower loops
+    initial[[i]] <- rep(NA, 2)
+  }
+  names(initial) <- c(paste0("Player", 1:n), "Dealer") # name the players and dealer
+  for (i in names(initial)){
+    initial[[i]][1] <- sample(deck,1)             # this deals the first card to each player and the dealer, updating deck along way
+    deck <- update_deck(deck, initial[[i]][1])
+    print(length(deck))
+  }
+  for (i in names(initial)){                     # repeat for second card
+    initial[[i]][2] <- sample(deck,1)
+    deck <- update_deck(deck, initial[[i]][2])
+    print(length(deck))
+  }
+  return(initial)
+}
+
+
+# a function for splitting hands, not done yet
+splitjack <- function(s){
+  split1 <- c(dealp[1], sample(newdeck,1,replace = F))
+  newdeck <- update_deck(newdeck, split1[2])
+  deal <- checkace(split1[1], split1[2])
+  add <- split1[1] + split1[2]
+  while(add <= 16){ # if the sum is less than 16, hit, until at or above 16
+    hit <- sample(newdeck, 1, replace = F)
+    newdeck <- update_deck(newdeck, hit)   
+    add = add + hit # sum add and hit, this process continues until it exceeds 16
+  }
+}
+
+```
+
+```{r}
+# algorithm that simulates simple game of blackjack between dealer and player
+twoplayerblackjack_test <- function(x){
+  hand <- 0
+  decklength <- length(x)
+  while(decklength > 30){
+  hand <- hand + 1
+  deald <- sample(deck, 1, replace = F) # deal first card to dealer
+  deck <- deck %>% update_deck(deald) # update deck
+  dealp <- sample(deck, 1, replace = F) # deal first card to player
+  deck <- update_deck(deck, dealp) # update deck
+  deald <- c(deald, sample(deck, 1, replace = F)) # deal second card to dealer
+  deck <- update_deck(deck, deald[2]) # update deck
+  deald <- checkace(deald[1], deald[2]) # check aces of dealer
+  dealp <- c(dealp, sample(deck, 1, replace = F)) # deal second card to player
+  deck <- update_deck(deck, dealp[2]) # update deck
+  dealp <- checkace(dealp[1], dealp[2]) # check aces of player
+ # we now have two cards dealt to the player and dealer (in the proper sequence), and an updated deck, yay
+  
+ # it is now the player's turn to assess their cards and hit or stay (want to add splits at some point)
+  if(deald[1] == 4 | deald[1] == 5 | deald[1] == 6){ # check for bust cards, stay if showing
+    addp <- dealp[1] + dealp[2]
+  } else {
+  addp <- dealp[1] + dealp[2]
+   while(addp <= 16){ # if the sum is less than 16, hit, until at or above 16
+    hit <- sample(deck, 1, replace = F)
+    deck <- update_deck(deck, hit)
+    hit <- checkacehit(hit, addp)
+    addp = addp + hit # sum add and hit, this process continues until it exceeds 16
+   }
+  }
+  # it is now the dealer's turn
+  addD <- deald[1] + deald[2]
+  while(addD <= 16){ # if the sum is less than 16, hit, until at or above 16
+    hit <- sample(deck, 1, replace = F)
+    deck <- update_deck(deck, hit)
+    hit <- checkacehit(hit, addD)
+    addD = addD + hit # sum add and hit, this process continues until it exceeds 16
+  }
+  # Store results
+  if (addp > addD & addp < 22 | addD > 21 & addp <= 21){
+    Result <- "Player Win"
+  } else {
+    if(addp < addD & addD < 22| addp > 21 & addD <= 21){
+      Result <- "House Win"
+    } else {
+      if(addp == addD | addp > 21 & addD > 21 )
+      Result <- "Draw"
+  }
+  }
+    decklength <- length(deck)  
+    if(hand == 1){
+      Result_table <- tibble(Result)
+    } else {
+      new <- tibble(Result)
+      Result_table <- rbind(Result_table, new)
+    }
+  }
+  return(Result_table)
+}
+# A full-ish game of blackjack between a dealer and player!!!
+```
+
+```{r}
+# simulate above algorithm 1000 times and see results
+sim <- rerun(1000,twoplayerblackjack_test(deck))
+allresults <- unlist(sim) # get a vector of all results across all hands 
+player <- mean(allresults == "Player Win")
+house <- mean(allresults == "House Win")
+draw <- mean(allresults == "Draw")
+
+ResultsofSim <- matrix(data = 100*c(player, house, draw), nrow = 1, ncol = 3, dimnames = list("%",c("Player Win %", "House Win %", "Draw %")), byrow = T) # create a neat matrix to display sim results
+print(ResultsofSim)
+```
+
+for (p in 1:n) {             # deal first card to players
+  playerp <- c(assign(paste0("playerp", p), sample(k, 1, replace = F)), NULL)
+  print(playerp)
+  }
